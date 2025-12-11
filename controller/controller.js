@@ -200,4 +200,228 @@ exports.contactUs = async (req, res) => {
   }
 };
 
+exports.enroll = async (req, res) => {
+  try {
+    const { parentName, phone, email, childName, age, message } = req.body;
+    if (!parentName || !parentName.trim()) {
+      return res.status(400).json({ message: "Parent name is required", success: false });
+    }
+    if (!phone || !phone.trim()) {
+      return res.status(400).json({ message: "Phone number is required", success: false });
+    }
+    const phoneDigits = phone.replace(/\D/g, "");
+    if (!phoneDigits || !/^[6-9]\d{9}$/.test(phoneDigits)) {
+      return res.status(400).json({
+        message: "Enter a valid phone number",
+        success: false
+      });
+    }
+    if (!email || !/\S+@\S+\.\S+/.test(email)) {
+      return res.status(400).json({ message: "Valid email is required", success: false });
+    }
+
+    if (!childName || !childName.trim()) {
+      return res.status(400).json({ message: "Child name is required", success: false });
+    }
+
+    if (!age || isNaN(age) || age <= 0) {
+      return res.status(400).json({ message: "Valid age is required", success: false });
+    }
+
+    if (!message || message.trim().length < 5) {
+      return res.status(400).json({
+        message: "Message must be at least 5 characters",
+        success: false
+      });
+    }
+
+
+
+    const [result] = await db.query(
+      `INSERT INTO enrollments 
+      (parentName, phone, email, childName, age, message) 
+      VALUES (?, ?, ?, ?, ?, ?)`,
+      [parentName, phoneDigits, email, childName, age, message]
+    );
+
+
+
+    const mailOptions = {
+      from: `"New Enrollment Alert" <${process.env.SMTP_USER}>`,
+      to: process.env.CEO_EMAIL,
+      subject: `🎉 New Course Enrollment | ${parentName} (${phoneDigits})`,
+      html: `
+      <div style="font-family: Arial, Helvetica, sans-serif; background:#f5f6fa; padding:20px;">
+        
+        <div style="
+          max-width:600px; margin:auto; 
+          background:#4CAF50;
+          padding:14px 20px;
+          border-radius:8px 8px 0 0;
+          color:white; font-size:18px; font-weight:bold;
+          text-align:center;">
+          🎉 New Course Enrollment Received
+        </div>
+
+        <div style="
+          max-width:600px; margin:auto; background:white; 
+          padding:25px; border-radius:0 0 8px 8px; 
+          box-shadow:0 4px 10px rgba(0,0,0,0.1);
+        ">
+
+          <h2 style="margin:0 0 15px; color:#333; font-size:22px;">
+            A parent has enrolled their child in your course.
+          </h2>
+
+          <div style="font-size:16px; color:#444;">
+            <p><strong>👤 Parent Name:</strong> ${parentName}</p>
+            <p><strong>📞 Phone:</strong>${phoneDigits}</p>
+            <p><strong>📧 Email:</strong> ${email}</p>
+            <p><strong>🧒 Child Name:</strong> ${childName}</p>
+            <p><strong>🎂 Child Age:</strong> ${age}</p>
+          </div>
+
+          <hr style="margin:20px 0; border:none; border-bottom:1px solid #ddd;" />
+
+          <div style="
+            background:#f7f9fc; padding:15px; 
+            border-left:4px solid #4CAF50; 
+            font-size:16px; line-height:1.5; color:#333;">
+            <strong>📝 Message:</strong><br/> ${message}
+          </div>
+
+          <hr style="margin:20px 0; border:none; border-bottom:1px solid #eee;" />
+
+          <p style="font-size:14px; color:#777; text-align:center;">
+            Notification from <strong>Official Enrollment Form</strong><br/>
+            Timestamp: ${new Date().toLocaleString()}
+          </p>
+        </div>
+      </div>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+    return res.status(200).json({
+      message: "Enrollment successful! Our team will contact you.",
+      success: true,
+      data: { id: result.insertId }
+    });
+
+  } catch (error) {
+    console.error("ENROLL ERROR:", error);
+
+    return res.status(500).json({
+      message: "Internal server error",
+      success: false,
+      error: error.message
+    });
+  }
+};
+
+exports.eventRegistration = async (req, res) => {
+  try {
+    const { fullName, phone, email, className, schoolName } = req.body;
+
+    if (!fullName || !fullName.trim()) {
+      return res.status(400).json({ message: "Full Name is required", success: false });
+    }
+
+    if (!phone || !phone.trim()) {
+      return res.status(400).json({ message: "Phone number is required", success: false });
+    }
+
+
+    const phoneDigits = phone.replace(/\D/g, "");
+    if (!phoneDigits || !/^[6-9]\d{9}$/.test(phoneDigits)) {
+      return res.status(400).json({
+        message: "Enter a valid phone number",
+        success: false
+      });
+    }
+
+    if (!email || !email.trim() || !/\S+@\S+\.\S+/.test(email)) {
+      return res.status(400).json({ message: "Valid email is required", success: false });
+    }
+
+    if (!className || !className.trim()) {
+      return res.status(400).json({ message: "Class name is required", success: false });
+    }
+
+    if (!schoolName || !schoolName.trim()) {
+      return res.status(400).json({ message: "School name is required", success: false });
+    }
+
+ 
+    const [result] = await db.query(
+      "INSERT INTO registrations (fullName, phone, email, className, schoolName) VALUES (?, ?, ?, ?, ?)",
+      [fullName, phoneDigits, email, className, schoolName]
+    );
+
+    const mailOptions = {
+      from: `"BOTIXBO Registration Alerts" <${process.env.SMTP_USER}>`,
+      to: process.env.CEO_EMAIL,
+      subject: `🎓 New Registration: ${fullName} (${phoneDigits})`,
+
+      html: `
+      <div style="font-family:Arial; background:#f2f4f7; padding:20px;">
+
+        <div style="
+          max-width:600px; margin:auto;
+          background:#0d6efd; padding:14px 20px;
+          color:white; font-size:18px;
+          border-radius:8px 8px 0 0;
+          text-align:center;">
+          🎉 New Event Registation Received
+        </div>
+
+        <div style="
+          max-width:600px; margin:auto;
+          background:white; padding:25px;
+          border-radius:0 0 8px 8px;
+          box-shadow:0 4px 10px rgba(0,0,0,0.1);">
+
+          <h2 style="margin-top:0; color:#222;">Student Registration Details</h2>
+
+          <div style="font-size:16px; color:#444;">
+            <p><strong>👤 Name:</strong> ${fullName}</p>
+            <p><strong>📞 Phone:</strong> +91-${phoneDigits}</p>
+            <p><strong>📧 Email:</strong> ${email}</p>
+            <p><strong>🏫 School:</strong> ${schoolName}</p>
+            <p><strong>📚 Class:</strong> ${className}</p>
+          </div>
+
+          <hr style="margin:25px 0; border:none; border-bottom:1px solid #ddd;" />
+
+          <p style="font-size:14px; color:#777; text-align:center;">
+            Notification sent from <b>BOTIXBO Official Website</b><br/>
+            📅 ${new Date().toLocaleString()}
+          </p>
+
+        </div>
+      </div>
+      `
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    return res.status(200).json({
+      message: "Enrollment successful! You will be contacted soon.",
+      success: true,
+      id: result.insertId,
+    });
+
+  } catch (error) {
+    console.error("ENROLL ERROR:", error);
+
+    return res.status(500).json({
+      message: "Internal server error",
+      success: false,
+      error: error.message,
+    });
+  }
+};
+
+
+
 
